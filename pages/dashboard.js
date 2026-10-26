@@ -24,6 +24,7 @@ export async function getServerSideProps({ req, res, resolvedUrl }) {
         createdAt: user.createdAt.toISOString(),
         lastLoginAt: user.lastLoginAt.toISOString(),
         loginCount: user.loginCount,
+        role: user.role,
       };
     }
   } catch (err) {
@@ -35,6 +36,8 @@ export async function getServerSideProps({ req, res, resolvedUrl }) {
 
 export default function Dashboard({ user, account }) {
   const firstName = (user.name || "there").split(" ")[0];
+  // The database role is the source of truth; the session copy can be out of date after a promotion
+  const isAdmin = (account?.role || user.role) === "admin";
 
   return (
     <>
@@ -62,10 +65,10 @@ export default function Dashboard({ user, account }) {
               <p className="text-slate-500 break-all">{user.email}</p>
               <span
                 className={`mt-2 inline-block text-xs font-semibold px-2.5 py-1 rounded-full ${
-                  user.role === "admin" ? "bg-ink text-white" : "bg-brand-100 text-brand-600"
+                  isAdmin ? "bg-ink text-white" : "bg-brand-100 text-brand-600"
                 }`}
               >
-                {user.role === "admin" ? "Admin" : "Member"}
+                {isAdmin ? "Admin" : "Member"}
               </span>
             </div>
             <button
@@ -75,6 +78,21 @@ export default function Dashboard({ user, account }) {
               Sign out
             </button>
           </section>
+
+          {isAdmin && (
+            <a
+              href="/admin"
+              className="mt-6 flex items-center justify-between gap-4 rounded-2xl bg-ink text-white p-6 hover:bg-slate-800"
+            >
+              <span>
+                <span className="block font-semibold text-lg">Admin dashboard</span>
+                <span className="block text-sm text-slate-300">Manage users and see sign-up and activity analytics.</span>
+              </span>
+              <span aria-hidden="true" className="text-2xl">
+                →
+              </span>
+            </a>
+          )}
 
           <section className="mt-6 grid sm:grid-cols-3 gap-4" aria-label="Account details">
             {[

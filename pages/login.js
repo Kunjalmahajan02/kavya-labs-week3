@@ -19,6 +19,7 @@ export async function getServerSideProps({ req, res, query }) {
 
 const ERRORS = {
   AccessDenied: "Your Google account's email isn't verified. Please use a verified account.",
+  Suspended: "Your account has been suspended by an admin. Contact support if you think this is a mistake.",
   OAuthAccountNotLinked: "This email is already linked to another sign-in method.",
   Configuration: "Sign-in isn't configured correctly on the server. Please try again later.",
   default: "Sign-in didn't work. Please try again.",
@@ -78,7 +79,13 @@ export default function Login() {
           </p>
         </div>
 
-        <Link href="/" className="mt-6 text-sm text-slate-500 hover:text-brand-600">
+        <p className="mt-6 text-sm text-slate-500 text-center">
+          Just looking around?{" "}
+          <Link href="/admin/demo" className="font-semibold text-brand-600 hover:underline">
+            Explore the admin dashboard demo →
+          </Link>
+        </p>
+        <Link href="/" className="mt-3 text-sm text-slate-500 hover:text-brand-600">
           ← Back to home
         </Link>
       </main>

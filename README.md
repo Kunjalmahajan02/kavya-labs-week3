@@ -1,44 +1,69 @@
-# Kavya Labs · Week 2: User authentication
+# Kavya Labs · Week 3: Admin dashboard
 
-Week 2 of the Kavya Labs build (Finlatics ANDP Virtual Startup simulator). It adds **user authentication with NextAuth.js and Google OAuth** on top of the Week 1 landing page.
+Week 3 of the Kavya Labs build (Finlatics ANDP Virtual Startup simulator). It adds an **admin dashboard with user management and analytics** on top of the Week 1 landing page and the Week 2 Google sign-in.
 
-> Week 2 brief from the founder, Rohan Mehta: *User authentication: NextAuth + Google OAuth.*
+> Week 3 brief from the founder, Rohan Mehta: *Admin dashboard: user management + analytics.*
+
+## How to test it (no sign-in needed)
+
+1. Open **`/admin/demo`**. It's linked from the navbar ("Admin demo"), the footer and the login page. This is the **real admin dashboard**, filled with 48 generated sample users (all `@example.com`). Changes there are local and not saved.
+2. **Analytics tab:** KPI cards, daily sign-up and sign-in charts for the last 30 days, role and status breakdowns, most active users.
+3. **Users tab:** search, filter by role or status, sort, paginate, **Make admin / Remove admin**, **Suspend / Reactivate**, **Delete** and **Export CSV**.
+4. **`/admin`** is the live dashboard. Signed-out visitors are redirected to `/login?callbackUrl=%2Fadmin`; signed-in non-admins see an "Admins only" page.
+5. **`/api/admin/users/:id`** returns `401` without a session and `403` for non-admins.
 
 ## Features
 
-| Feature | How it works | File |
+### User management
+| Feature | Details | File |
 |---|---|---|
-| **NextAuth.js** | NextAuth v4 API route handling sign-in, callbacks, sessions and sign-out | `pages/api/auth/[...nextauth].js`, `lib/auth.js` |
-| **Google OAuth** | Google provider (OpenID Connect: `openid email profile`). Only Google accounts with a verified email are accepted | `lib/auth.js` |
-| **Custom sign-in page** | Branded `/login` page with a "Continue with Google" button and friendly error messages | `pages/login.js` |
-| **Protected routes** | NextAuth middleware redirects signed-out visitors from `/dashboard` to `/login?callbackUrl=/dashboard`; the page also checks the session on the server | `middleware.js`, `pages/dashboard.js` |
-| **Sessions** | Signed, encrypted JWT session cookie. `useSession` drives the navbar; `getServerSession` protects server-rendered pages | `pages/_app.js`, `components/Navbar.jsx` |
-| **User dashboard** | Profile photo, name, email, role, member-since date, last sign-in and total sign-ins, plus sign-out | `pages/dashboard.js` |
-| **Users saved to the database** | Every sign-in creates or updates the user in Postgres (Supabase) via Prisma: name, email, photo, role, login count, last login | `lib/auth.js`, `prisma/schema.prisma` |
-| **Roles** | Emails listed in `ADMIN_EMAILS` get the `admin` role, ready for the Week 3 admin dashboard | `lib/auth.js` |
-| **Session-aware navbar** | Signed out: "Sign in" and "Get started". Signed in: avatar, "Dashboard" and "Sign out" | `components/Navbar.jsx` |
+| **User list** | Avatar, name, email, role, status, sign-in count, join date, last active | `components/admin/UsersTable.jsx` |
+| **Search, filter, sort, paginate** | Search name/email; filter role and status; sort by newest, oldest, recently active, most sign-ins, name; 10 per page | `components/admin/UsersTable.jsx` |
+| **Change role** | Promote to admin or demote to member | `pages/api/admin/users/[id].js` |
+| **Suspend / reactivate** | Suspended users are blocked at sign-in with a clear message | `pages/api/admin/users/[id].js`, `lib/auth.js` |
+| **Delete user** | With a confirmation prompt; their sign-in history is deleted too | `pages/api/admin/users/[id].js` |
+| **Export CSV** | Downloads the current filtered list | `components/admin/UsersTable.jsx` |
+| **Guard rails** | Admins can't change their own account, and owner admins (`ADMIN_EMAILS`) can't be changed from the UI | `pages/api/admin/users/[id].js` |
 
-Everything from Week 1 (hero, features, how it works, pricing, FAQ, footer) is still on the home page.
+### Analytics
+| Metric | Details |
+|---|---|
+| **Total users** | With admin and suspended counts |
+| **New users (7 days)** | With % change vs the previous 7 days |
+| **Active users (7 days)** | Unique users who signed in, with % change |
+| **Sign-ins (30 days)** | Every Google sign-in is logged in a `LoginEvent` table |
+| **Daily charts** | New sign-ups per day and sign-ins per day, last 30 days (India time) |
+| **Breakdowns** | Members vs admins, active vs suspended |
+| **Most active users** | Top 5 by sign-ins in 30 days |
 
-## How to test it
+All metrics come from one pure function, `lib/analytics.js`, used by both the live dashboard and the demo. Charts are lightweight SVG with no chart library.
 
-**Without signing in** (as a reviewer):
+### Security
+- **Role-based access control:** `/admin` and the admin API check the role **in the database on every request**, not just the session cookie, so a demoted or suspended admin loses access immediately.
+- **NextAuth middleware** protects `/dashboard` and `/admin`.
+- **Owner admins** come from `ADMIN_EMAILS`; others are promoted from the dashboard.
 
-1. Open the live site. The navbar shows **Sign in** and **Get started**; the hero button "Get started free" goes to `/login`.
-2. Open **`/dashboard`**. You're redirected to **`/login?callbackUrl=%2Fdashboard`**, which shows the route is protected.
-3. On `/login`, **Continue with Google** sends you to Google's real OAuth consent screen.
-4. **`/api/auth/providers`** returns the configured Google provider as JSON.
+## Data model (Prisma)
 
-**With a Google account:** click **Continue with Google**, approve, and you land on `/dashboard` with your profile. The navbar switches to your avatar, and **Sign out** returns you to the home page.
+```prisma
+model User {
+  id, email (unique), name, image,
+  role        "user" | "admin"
+  status      "active" | "suspended"
+  loginCount, createdAt, lastLoginAt
+  logins      LoginEvent[]
+}
 
-## Auth flow
-
+model LoginEvent {
+  id, userId → User (cascade delete), createdAt
+}
 ```
-/login ─► "Continue with Google" ─► Google consent ─► /api/auth/callback/google
-   ▲                                                         │
-   │ middleware redirect (signed out)                        ▼
-/dashboard ◄──── JWT session cookie ◄──── NextAuth: verify email, save user (Prisma), set role
-```
+
+## Everything so far
+
+- **Week 1:** landing page (hero, features, how it works, pricing, FAQ, footer)
+- **Week 2:** NextAuth + Google OAuth, protected `/dashboard`, users saved with Prisma
+- **Week 3:** admin dashboard, user management, analytics, role-based access, public demo
 
 ## Tech stack
 
@@ -46,10 +71,7 @@ Next.js 14 (Pages Router) · NextAuth.js v4 · Google OAuth 2.0 · Prisma · Sup
 
 ## Setup
 
-1. **Google OAuth client:** Google Cloud Console → APIs & Services → Credentials → Create credentials → OAuth client ID → Web application.
-   - Authorized JavaScript origin: `https://<your-app>.vercel.app`
-   - Authorized redirect URI: `https://<your-app>.vercel.app/api/auth/callback/google`
-2. Copy `.env.example` to `.env` (or add the same variables in Vercel) and fill in every value.
-3. `npm install`, then `npm run dev`.
+Same as Week 2. See `.env.example`: `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `ADMIN_EMAILS`, `DATABASE_URL`, `DIRECT_URL`.
+Add `<your-site>/api/auth/callback/google` as an authorized redirect URI on the Google OAuth client.
 
-Tables are created automatically on each build (`scripts/db-push.js`), inside a separate `kavya` Postgres schema so the database can be shared with other projects safely.
+Tables are created automatically on each build (`scripts/db-push.js`) in a separate `kavya_week3` Postgres schema, so the database can be shared with other projects and with the Week 2 deployment safely.

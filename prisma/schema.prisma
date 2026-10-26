@@ -1,4 +1,4 @@
-// Tables live in the "kavya" Postgres schema (see lib/dbUrl.js), created by scripts/db-push.js on each build.
+// Tables live in their own Postgres schema (see lib/dbUrl.js), created by scripts/db-push.js on each build.
 
 generator client {
   provider = "prisma-client-js"
@@ -12,12 +12,25 @@ datasource db {
 
 // One row per person who has signed in with Google
 model User {
-  id          String   @id @default(cuid())
-  email       String   @unique
+  id          String       @id @default(cuid())
+  email       String       @unique
   name        String?
   image       String?
-  role        String   @default("user") // "user" | "admin" (admins come from ADMIN_EMAILS)
-  loginCount  Int      @default(0)
-  createdAt   DateTime @default(now())
-  lastLoginAt DateTime @default(now())
+  role        String       @default("user") // "user" | "admin"
+  status      String       @default("active") // "active" | "suspended" (suspended users can't sign in)
+  loginCount  Int          @default(0)
+  createdAt   DateTime     @default(now())
+  lastLoginAt DateTime     @default(now())
+  logins      LoginEvent[]
+}
+
+// One row per successful sign-in, used for activity analytics
+model LoginEvent {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([userId])
 }
